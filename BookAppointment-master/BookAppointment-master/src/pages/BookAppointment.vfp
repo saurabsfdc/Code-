@@ -1,0 +1,3 @@
+<apex:page standardController="Contact" cache="false" >
+    <c:BookAppointment whoId="{!Contact.Id}" whatId="{!Contact.AccountId}" eventSubject="Meeting Request" />
+</apex:page>

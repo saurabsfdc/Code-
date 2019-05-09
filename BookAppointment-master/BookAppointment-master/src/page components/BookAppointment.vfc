@@ -1,0 +1,148 @@
+<apex:component controller="BookAppointment" allowDML="true">
+    <!--
+        ******NOTE******
+        Please Note that this does not query the users calendar to find empty time slots.
+        Instead the availability of timeslots is randomized.
+        
+        This is intended for *DEMO PURPOSES ONLY* and should not used as a live app.
+        
+        The code used is Proprietary
+        ******NOTE******
+        
+    -->
+    <apex:attribute type="string" assignTo="{!whoId}" name="whoId" required="true" description="The Contact/Lead Id Against which the appointment will be created"/>
+    <apex:attribute type="string" assignTo="{!eventSubject}" name="eventSubject" required="true" description="The Subject Line for Events Created with this Component"/>
+
+    <apex:attribute type="string" assignTo="{!whatId}" name="whatId" description="The Related To Id for an Event this could be an Account, Opp, Case etc"/>    
+    <apex:attribute type="string" assignTo="{!userId}" name="userId" description="The User Id Against which the created appointment will be created. If not provided this defaults to the current User"/>
+    
+    <style>
+        .meetingElement {
+            text-align: center;
+            vertical-align: middle !important;
+            width: 100%;
+        }
+        .meetingDate {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        div.availableTimes {
+            text-align: center;
+        }
+        
+        .toggleDay {
+                font-size: 14px !important;
+                color: #333333 !important;
+                padding: 10px 16px !important;
+                background: -moz-linear-gradient(
+                    top,
+                    #ffffff 0%,
+                    #d3d6d2) !important;
+                background: -webkit-gradient(
+                    linear, left top, left bottom, 
+                    from(#ffffff),
+                    to(#d3d6d2)) !important;
+                border-radius: 4px !important;
+                -moz-border-radius: 4px !important;
+                -webkit-border-radius: 4px !important;
+                border: 1px solid #b5b5b5 !important;
+                -moz-box-shadow:
+                    0px 1px 3px rgba(255,255,255,0.5),
+                    inset 0px 0px 2px rgba(255,255,255,1) !important;
+                -webkit-box-shadow:
+                    0px 1px 3px rgba(255,255,255,0.5),
+                    inset 0px 0px 2px rgba(255,255,255,1) !important;
+                text-shadow:
+                    0px -1px 0px rgba(255,255,255,0.4),
+                    0px 1px 0px rgba(255,255,255,0.3) !important;
+
+        }
+        
+        .availableTime {            
+            font-size: 14px !important;
+            color: #ffffff !important;
+            padding: 10px 20px !important;
+            background: -moz-linear-gradient(
+                top,
+                #87bff0 0%,
+                #57b9f2 50%,
+                #3a90c2 50%,
+                #2793d1) !important;
+            background: -webkit-gradient(
+                linear, left top, left bottom, 
+                from(#87bff0),
+                color-stop(0.50, #57b9f2),
+                color-stop(0.50, #3a90c2),
+                to(#2793d1)) !important;
+            border-radius: 8px !important;
+            -moz-border-radius: 8px !important;
+            -webkit-border-radius: 8px !important;
+            border: 1px solid #ffffff !important;
+            -moz-box-shadow:
+                0px 1px 3px rgba(000,000,000,0.5),
+                inset 0px 0px 1px rgba(255,255,255,0.7) !important;
+            -webkit-box-shadow:
+                0px 1px 3px rgba(000,000,000,0.5),
+                inset 0px 0px 1px rgba(255,255,255,0.7) !important;
+            text-shadow:
+                0px -1px 0px rgba(000,000,000,0.4),
+                0px 1px 0px rgba(255,255,255,0.3) !important;
+            width: 150px !important;
+        }             
+    </style>
+    
+    <br />
+    <apex:form >
+        <div id="wrap">
+            <apex:pageblock id="pageBlock">
+                <apex:pageBlockSection columns="1" rendered="{!NOT(appointmentBooked)}">
+                    <apex:pageBlockSectionItem >
+                        <apex:outputPanel >
+                            <table id="dayNav" border="0" width="100%">
+                                <tr>
+                                    <td><apex:commandButton value="« Earlier" action="{!earlierDate}" disabled="{!earliestDate == evt.ActivityDate}" styleClass="toggleDay" reRender="pageBlock" /></td>
+                                    <td class="meetingElement">
+                                    <apex:outputText value=" {0,date,EEEE dd MMMM yyyy}" styleClass="meetingDate">
+                                        <apex:param value="{!evt.ActivityDate}" />
+                                    </apex:outputText>
+                                    </td>
+                                    <td align="right"><apex:commandButton value="Later »" action="{!laterDate}" styleClass="toggleDay" reRender="pageBlock"/></td>
+                                </tr>
+                            </table>
+                        </apex:outputPanel>
+                    </apex:pageBlockSectionItem>
+                    <apex:pageBlockSectionItem >
+                        <apex:outputPanel layout="block" styleClass="availableTimes" >
+                            <br />
+                            <p>The Following Meeting Times Are Available for your selected Day.</p>
+                            <br />
+                            <p>Please Click on a Time to Select You Meeting:</p>
+                            <br /><br />
+                            <apex:repeat value="{!SelectedDateAvailableTimes}" var="selectedDateTime">
+                                <apex:commandButton value="{!LEFT(RIGHT(TEXT(selectedDateTime),9),5)}" action="{!confirmMeetingTime}"  styleClass="availableTime" reRender="pageBlock">    
+                                    <apex:param value="{!TEXT(selectedDateTime)}" assignTo="{!selectedTime}" name="preference" />    
+                                    
+                                </apex:commandButton>
+                            </apex:repeat>
+                            <br /><br />
+                        </apex:outputPanel>
+                    </apex:pageBlockSectionItem>
+                </apex:pageBlockSection>      
+                <apex:pageBlockSection columns="1" rendered="{!appointmentBooked}">
+                    <center>
+                    <br /><br />
+                        <p>
+                            
+                            <apex:outputText value="<b>Thank You</b> your meeting has been confirmed for: {0,date,EEEE dd MMMM yyyy ' at ' HH:mm:ss}" escape="false">
+                                <apex:param value="{!evt.StartDateTime}" />
+                            </apex:outputText>
+                        </p>
+                        <p>If for any reason you cannot make this time please let us know at your earliest possible convenience</p>
+                    <br /><br />
+                    </center>
+                </apex:pageBlockSection>      
+            </apex:pageblock>
+        </div>
+    </apex:form>
+</apex:component>
